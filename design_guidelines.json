@@ -1,0 +1,132 @@
+{
+  "theme": "LIGHT",
+  "archetype": "1_ORGANIC_AND_EARTHY",
+  "core_philosophy": "Botanical illustration meets scientific laboratory precision. We avoid generic muddy greens and instead use rich, textured earthy tones layered with crystal glassmorphism for a modern, high-end agritech experience.",
+  "colors": {
+    "background": {
+      "main": "#F5F5F0",
+      "surface": "#FDFDFB",
+      "muted": "#E8E8E3"
+    },
+    "text": {
+      "primary": "#1A3626",
+      "secondary": "#57695D",
+      "muted": "#839E88"
+    },
+    "brand": {
+      "primary": "#1A3626",
+      "secondary": "#839E88",
+      "accent": "#C25E4B"
+    },
+    "status": {
+      "pending": {
+        "bg": "#FCE5CD",
+        "text": "#B36B00",
+        "border": "#F3C185"
+      },
+      "approved": {
+        "bg": "#D7E8D6",
+        "text": "#1A3626",
+        "border": "#A3C4A5"
+      },
+      "rejected": {
+        "bg": "#F5D0C9",
+        "text": "#8F2C1A",
+        "border": "#E29D90"
+      }
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Cabinet Grotesk, sans-serif",
+      "body": "IBM Plex Sans, sans-serif"
+    },
+    "weights": {
+      "heading": "800",
+      "subheading": "600",
+      "body": "400"
+    },
+    "scales": {
+      "h1": "text-4xl sm:text-5xl tracking-tight",
+      "h2": "text-2xl sm:text-3xl tracking-tight",
+      "h3": "text-xl sm:text-2xl",
+      "body": "text-base leading-relaxed",
+      "label": "text-xs uppercase tracking-[0.2em]"
+    }
+  },
+  "layout_and_spacing": {
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+    "dashboard_grid": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+    "bento_spacing": "gap-8 lg:gap-12",
+    "surface_padding": "p-6 sm:p-8"
+  },
+  "surface_strategies": {
+    "cards": "bg-[#FDFDFB] border border-[#1A3626]/10 shadow-sm rounded-xl overflow-hidden",
+    "glass_header": "bg-[#F5F5F0]/80 backdrop-blur-xl border-b border-[#1A3626]/10 sticky top-0 z-50",
+    "drag_drop_zone": "bg-[#E8E8E3]/50 border-2 border-dashed border-[#839E88] rounded-2xl p-12 transition-all duration-300 hover:bg-[#E8E8E3] hover:border-[#1A3626]",
+    "neumorphic_widgets": "bg-[#FDFDFB] shadow-[4px_4px_10px_rgba(26,54,38,0.05),-4px_-4px_10px_rgba(255,255,255,1)] rounded-xl border border-[#1A3626]/5"
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#1A3626] text-[#FDFDFB] px-6 py-2 rounded-lg font-semibold transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#1A3626]/20",
+      "secondary": "bg-[#E8E8E3] text-[#1A3626] px-6 py-2 rounded-lg font-medium transition-colors hover:bg-[#839E88] hover:text-[#FDFDFB]",
+      "destructive": "bg-[#C25E4B] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#A34B3A]"
+    },
+    "inputs": "bg-[#FDFDFB] border border-[#839E88]/40 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1A3626] focus:border-transparent outline-none transition-all",
+    "badges": "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border",
+    "language_toggle": "flex items-center space-x-2 bg-[#E8E8E3] rounded-full p-1"
+  },
+  "media": {
+    "auth_background": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/26816054-55c0-4c2e-8815-3fcc93057a4f/images/fcb89757804fa40fb8a3512a40bfeaf09db80d741689cf3789acefec0dd5d0ab.png",
+      "description": "Abstract macro photography of a green leaf texture overlapping with architectural frosted glass."
+    },
+    "empty_state_dashboard": {
+      "url": "https://static.prod-images.emergentagent.com/jobs/26816054-55c0-4c2e-8815-3fcc93057a4f/images/d71c08f212b4a840b2dad34063ae0831c257e88a109530515c87b180955d939c.png",
+      "description": "Minimalist empty dashboard state background showing a serene sugarcane field with subtle geometric data lines."
+    },
+    "sugarcane_field_cover": {
+      "url": "https://images.unsplash.com/photo-1606707761700-86b58f251a01?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODF8MHwxfHNlYXJjaHwxfHxzdWdhcmNhbmUlMjBmaWVsZCUyMG1vcm5pbmd8ZW58MHx8fHwxNzc5MzQ0NDkyfDA&ixlib=rb-4.1.0&q=85",
+      "description": "Real image of a sugarcane field in the morning."
+    },
+    "sugarcane_leaf_texture": {
+      "url": "https://images.pexels.com/photos/4112802/pexels-photo-4112802.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Extreme close-up of a vibrant green leaf showcasing intricate patterns and textures."
+    }
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "Clean, line-based, stroke-width 1.5, deeply colored in #1A3626 or #839E88."
+  },
+  "accessibility_and_testing": {
+    "test_ids_required": [
+      "login-email-input",
+      "login-password-input",
+      "login-submit-button",
+      "register-form-link",
+      "language-toggle-dropdown",
+      "nav-dashboard-link",
+      "nav-history-link",
+      "nav-admin-link",
+      "upload-dropzone",
+      "detect-disease-button",
+      "history-item-expand-button",
+      "admin-approve-button",
+      "admin-reject-button",
+      "admin-download-zip-button"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install 'lucide-react' for icons if not present.",
+    "Configure Tailwind with the specified colors (background, primary, secondary) overriding the default index.css.",
+    "Include Cabinet Grotesk (headings) and IBM Plex Sans (body) via Google Fonts or Fontsource.",
+    "Implement language translation context covering EN, HI, MR. Use the language toggle in the header.",
+    "Build a sidebar or top nav for Dashboard, History, and Admin pages.",
+    "The Dashboard must feature a highly tactile, neumorphic drag-and-drop zone.",
+    "The History page must use expandable bento-style cards containing: Disease details, Symptoms, Treatment, Prevention, Products, Admin Suggestions.",
+    "The Admin Panel must use the 'Control Room' dense grid for stats (Total Users, Scans, Pending) and tabbed views for managing reviews.",
+    "Ensure the Admin review form includes a disease correction dropdown, severity indicator, suggestion textarea, and approve/reject CTA.",
+    "Always apply 'data-testid' to interactive elements for end-to-end testing.",
+    "Use the generated media URLs for empty states, login background, and placeholders."
+  ]
+}
