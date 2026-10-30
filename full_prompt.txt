@@ -1,0 +1,1374 @@
+<USER_REQUEST>
+MASTER PROMPT — REPLACE OLD DEMO GAT BOUNDARIES WITH
+Malegaon_Gat_Map_Final.kmz
+
+PROJECT:
+SoilPilot — Digital Soil Mapping & Soil Health Portal
+
+TASK:
+I have added a new GIS file:
+
+Malegaon_Gat_Map_Final.kmz
+
+This KMZ contains the actual Gat/plot boundaries for Malegaon.
+
+I want this NEW KMZ to become the PRIMARY AND ONLY SOURCE OF TRUTH for Gat boundaries in the website.
+
+The website must display the EXACT Gat boundary corresponding to the Gat Number selected/entered by the user.
+
+IMPORTANT:
+
+DO NOT redesign the website.
+
+DO NOT change the existing UI.
+
+DO NOT change the existing map design.
+
+DO NOT create fake boundaries.
+
+DO NOT approximate boundaries.
+
+DO NOT generate rectangles/polygons manually.
+
+DO NOT use the previous demo KML/KMZ files.
+
+DO NOT silently fall back to old demo boundary files.
+
+Use the actual geometry contained inside:
+
+Malegaon_Gat_Map_Final.kmz
+
+
+============================================================
+1. PRIMARY OBJECTIVE
+============================================================
+
+Replace the old/demo Gat boundary source with:
+
+Malegaon_Gat_Map_Final.kmz
+
+The complete flow must become:
+
+Malegaon_Gat_Map_Final.kmz
+        ↓
+Extract KMZ
+        ↓
+Read KML
+        ↓
+Inspect Placemark attributes
+        ↓
+Identify Gat Number
+        ↓
+Extract exact polygon geometry
+        ↓
+Validate geometry
+        ↓
+Convert to GeoJSON / PostGIS geometry
+        ↓
+Store/use in existing SoilPilot GIS architecture
+        ↓
+API
+        ↓
+Gat Number lookup
+        ↓
+Selected Gat geometry
+        ↓
+Map
+        ↓
+EXACT Gat boundary displayed
+
+
+============================================================
+2. FIRST STEP — READ-ONLY AUDIT
+============================================================
+
+BEFORE changing anything, inspect the complete existing project.
+
+Do NOT immediately start editing.
+
+First identify:
+
+- current KML/KMZ files
+- current GeoJSON files
+- old demo boundary files
+- current Gat boundary data source
+- current field geometry source
+- current PostGIS field geometry
+- current API endpoint returning field geometry
+- current frontend map component
+- current Gat lookup flow
+- current My Farm page
+- current Soil Map page
+- current Dashboard map
+- current field popup
+- current Gat dropdown/input
+- current data import scripts
+- current GIS utility functions
+- current coordinate/reference-system handling
+
+Find every place where the old demo boundary data is being loaded.
+
+Create a short internal audit:
+
+OLD FILE
+↓
+WHERE USED
+↓
+WHICH COMPONENT/API/SERVICE USES IT
+
+Do not modify anything during this audit.
+
+
+============================================================
+3. ANALYZE THE NEW KMZ FILE
+============================================================
+
+Locate:
+
+Malegaon_Gat_Map_Final.kmz
+
+IMPORTANT:
+A KMZ is normally a ZIP archive containing one or more KML files and possibly additional resources.
+
+Inspect the actual contents.
+
+Do not assume the internal file name.
+
+Determine:
+
+- internal KML filename(s)
+- number of KML files
+- number of Placemarks
+- geometry types
+- polygon count
+- MultiPolygon presence
+- folder hierarchy
+- ExtendedData
+- SchemaData
+- name fields
+- description fields
+- Gat-number fields
+- any other attributes
+- coordinate reference system
+- coordinate order
+- whether coordinates are valid
+- whether polygons are closed
+- whether polygons contain holes
+- whether there are duplicate Gat numbers
+
+DO NOT modify the original KMZ.
+
+Keep:
+
+Malegaon_Gat_Map_Final.kmz
+
+as the original source file.
+
+
+============================================================
+4. FIND THE EXACT GAT NUMBER FIELD
+============================================================
+
+This is CRITICAL.
+
+Do not assume the Gat number is stored in a field called:
+
+gat_no
+
+It may be stored as:
+
+Gat No
+Gat_No
+Gat Number
+GAT
+GAT_NO
+Survey No
+Survey_Number
+name
+description
+ExtendedData
+SchemaData
+
+Inspect the actual KMZ/KML.
+
+Determine exactly which attribute represents the Gat Number.
+
+Example:
+
+<Placemark>
+    <name>22</name>
+    ...
+</Placemark>
+
+OR:
+
+<ExtendedData>
+    <Data name="Gat_No">
+        <value>22</value>
+    </Data>
+</ExtendedData>
+
+OR another structure.
+
+Use the actual field from the file.
+
+Document:
+
+GAT ATTRIBUTE FOUND:
+[actual field]
+
+Do NOT invent a Gat-number field if one already exists.
+
+
+============================================================
+5. NORMALIZE GAT NUMBERS
+============================================================
+
+Create a safe normalization function.
+
+The same Gat must be matched even if the source contains formatting such as:
+
+22
+"22"
+Gat 22
+Gat No. 22
+GAT-22
+22.0
+
+Normalize only for lookup.
+
+Do NOT modify the original source attribute.
+
+Example:
+
+normalizeGatNumber("Gat No. 22")
+→ "22"
+
+normalizeGatNumber("22")
+→ "22"
+
+normalizeGatNumber("22.0")
+→ "22"
+
+The normalized value should be used for matching.
+
+The original source value should remain available as metadata if needed.
+
+
+============================================================
+6. CREATE A GAT → GEOMETRY MAPPING
+============================================================
+
+Build a reliable mapping:
+
+Gat Number
+        ↓
+Exact geometry
+        ↓
+Properties
+
+Conceptually:
+
+{
+    "22": {
+        "gat_no": "22",
+        "geometry": {...},
+        "properties": {...}
+    }
+}
+
+Every Gat must point to its exact polygon/multipolygon from the KMZ.
+
+DO NOT:
+
+- generate geometry
+- approximate geometry
+- calculate a fake boundary
+- use a bounding box as the field boundary
+- use centroid as the field boundary
+- use old demo coordinates
+
+
+============================================================
+7. HANDLE DUPLICATE GAT NUMBERS CORRECTLY
+============================================================
+
+Check whether the KMZ contains duplicate Gat numbers.
+
+If:
+
+Gat 22 → one polygon
+
+then simple mapping is fine.
+
+If:
+
+Gat 22 → multiple polygons
+
+DO NOT silently discard one.
+
+Determine whether they represent:
+
+- MultiPolygon parts of the same Gat
+- duplicate records
+- separate plots
+- different villages/locations
+
+If they are genuinely multiple parts of the same Gat, combine them into a MultiPolygon where appropriate.
+
+If they are ambiguous, report the issue rather than silently selecting one.
+
+
+============================================================
+8. VERIFY VILLAGE / LOCATION INFORMATION
+============================================================
+
+The target location is:
+
+Malegaon
+Baramati
+Pune
+Maharashtra
+
+Inspect whether the KMZ itself contains:
+
+- village
+- taluka
+- district
+- state
+
+attributes.
+
+If these fields exist, preserve them.
+
+The website's Gat lookup should use the appropriate location context.
+
+Do NOT mix Gat geometries from different villages.
+
+If the same Gat number exists elsewhere, it must not display the wrong boundary.
+
+
+============================================================
+9. COORDINATE SYSTEM — VERY IMPORTANT
+============================================================
+
+Inspect the coordinate system of the KML/KMZ.
+
+KML normally uses WGS84 longitude/latitude coordinates.
+
+Do NOT assume.
+
+Verify the actual coordinates.
+
+Ensure that:
+
+longitude = X
+
+latitude = Y
+
+when converting to GeoJSON/MapLibre/Leaflet.
+
+Verify that the geometry appears in the correct location.
+
+Do NOT accidentally reverse:
+
+latitude / longitude
+
+This can place the Gat thousands of kilometers away.
+
+
+============================================================
+10. GEOMETRY VALIDATION
+============================================================
+
+Before using the new boundaries, validate every geometry.
+
+Check:
+
+- valid polygon
+- closed rings
+- correct winding/order where required
+- no invalid coordinates
+- no empty geometry
+- no NaN coordinates
+- no impossible coordinates
+- no corrupted polygons
+- holes handled correctly
+- MultiPolygon handled correctly
+
+If geometry is invalid:
+
+attempt a safe GIS repair using an appropriate geometry library.
+
+Do NOT invent missing geometry.
+
+Record:
+
+Gat Number
+Original geometry status
+Repair performed
+Final geometry status
+
+
+============================================================
+11. COUNT AND VALIDATE THE GATS
+============================================================
+
+After parsing the KMZ, produce a validation summary.
+
+Example:
+
+KMZ:
+Malegaon_Gat_Map_Final.kmz
+
+Total Placemarks:
+XXX
+
+Polygon geometries:
+XXX
+
+MultiPolygons:
+XXX
+
+Valid geometries:
+XXX
+
+Invalid geometries:
+XXX
+
+Unique Gat Numbers:
+XXX
+
+Duplicate Gat Numbers:
+XXX
+
+Missing Gat Numbers:
+XXX
+
+Do not assume the number of Gats.
+
+Use the actual data contained in the file.
+
+
+============================================================
+12. IMPORTANT — DO NOT ASSUME GAT 1–221
+============================================================
+
+The website must use the actual Gat numbers available in:
+
+Malegaon_Gat_Map_Final.kmz
+
+Do NOT automatically create:
+
+1
+2
+3
+...
+221
+
+unless those Gat numbers actually exist in the new GIS source.
+
+If the KMZ contains 1–221, then all available numbers should become selectable.
+
+If it contains fewer, show only the actual available Gat numbers.
+
+NEVER create fake Gat records merely to populate the dropdown.
+
+
+============================================================
+13. REPLACE OLD DEMO BOUNDARY FILES
+============================================================
+
+Find all previous/demo boundary files.
+
+Examples may include:
+
+old .kml
+old .kmz
+old .geojson
+demo boundary GeoJSON
+hardcoded polygon coordinates
+sample Gat boundary JSON
+mock field geometry
+static demo coordinates
+
+Identify which ones are actually used by the application.
+
+The NEW SOURCE must be:
+
+Malegaon_Gat_Map_Final.kmz
+
+Remove old boundary files ONLY after verifying that:
+
+1. New KMZ has been successfully parsed.
+2. New geometries are available.
+3. New Gat mapping works.
+4. Website displays the new geometry.
+5. No important functionality depends on the old file.
+
+Then remove obsolete old DEMO boundary files and references.
+
+DO NOT delete:
+
+- soil rasters
+- NDVI rasters
+- GeoTIFF files
+- PostGIS database
+- soil data
+- unrelated GIS layers
+- application code
+- KML/KMZ files that belong to another valid feature
+
+Only remove OLD DEMO GAT BOUNDARY SOURCES that are replaced by the new KMZ.
+
+
+============================================================
+14. DO NOT JUST CHANGE THE FILE NAME
+============================================================
+
+IMPORTANT:
+
+Do NOT simply rename:
+
+old.kml
+→
+Malegaon_Gat_Map_Final.kmz
+
+That is NOT enough.
+
+The actual GIS pipeline must use the new geometry.
+
+Trace the complete data flow.
+
+
+============================================================
+15. CHOOSE THE CORRECT INTEGRATION METHOD
+============================================================
+
+Inspect the existing SoilPilot architecture first.
+
+If the current project already uses:
+
+KMZ → KML → GeoJSON
+
+then integrate the new file into that pipeline.
+
+If it uses:
+
+KMZ → PostGIS
+
+then import the new geometries into PostGIS.
+
+If it uses:
+
+KML → API → frontend
+
+reuse that architecture.
+
+Do NOT create a second unrelated GIS system.
+
+Use the existing architecture wherever possible.
+
+
+============================================================
+16. PREFERRED GIS DATA FLOW
+============================================================
+
+The preferred production flow is:
+
+ORIGINAL SOURCE:
+
+Malegaon_Gat_Map_Final.kmz
+
+        ↓
+
+KMZ extraction/parsing
+
+        ↓
+
+KML
+
+        ↓
+
+Validated GeoJSON
+
+        ↓
+
+PostGIS geometry
+
+        ↓
+
+Field/Gat record
+
+        ↓
+
+Existing API
+
+        ↓
+
+Frontend map
+
+        ↓
+
+Exact Gat polygon
+
+
+If the existing project architecture does not require PostGIS for this particular feature, do not force a complete architectural rewrite.
+
+Use the smallest correct integration.
+
+
+============================================================
+17. POSTGIS INTEGRATION
+============================================================
+
+If field geometries are stored in PostGIS, import the new boundaries into the existing field geometry structure.
+
+Do NOT create a duplicate field system unless necessary.
+
+Preserve existing fields such as:
+
+- gat_no
+- village
+- taluka
+- district
+- state
+- area
+- geometry
+
+Use the correct PostGIS geometry type:
+
+Polygon
+or
+MultiPolygon
+
+according to the actual source.
+
+Use the correct SRID.
+
+Verify geometry using PostGIS spatial functions.
+
+Do NOT change unrelated database tables.
+
+
+============================================================
+18. AREA CALCULATION
+============================================================
+
+If the KMZ contains area information:
+
+compare it with calculated geometry area.
+
+Do NOT blindly trust a textual area attribute.
+
+Calculate geometry area using the correct projected/equal-area method or existing GIS area utility.
+
+The map popup should continue to show the actual Gat area.
+
+Example:
+
+Gat No. 22
+Area: 3.68 Acres (1.49 Ha)
+
+The value must correspond to the new Gat geometry.
+
+
+============================================================
+19. API INTEGRATION
+============================================================
+
+Find the existing endpoint used to retrieve Gat/field information.
+
+For example, it may be something similar to:
+
+GET /api/v1/fields/{id}
+
+or:
+
+GET /api/v1/fields/by-gat/{gat_no}
+
+Do NOT assume the endpoint name.
+
+Inspect the real project.
+
+The API response should return the geometry for the selected Gat.
+
+Prefer GeoJSON-compatible output.
+
+Example concept:
+
+{
+    "gat_no": "22",
+    "village": "Malegaon",
+    "taluka": "Baramati",
+    "district": "Pune",
+    "area_acres": 3.68,
+    "area_hectares": 1.49,
+    "geometry": {
+        "type": "Polygon",
+        "coordinates": [...]
+    }
+}
+
+Use the actual project's schema instead of blindly creating this exact structure.
+
+
+============================================================
+20. GAT SEARCH FLOW
+============================================================
+
+The user flow must be:
+
+User selects:
+
+State
+↓
+District
+↓
+Taluka
+↓
+Village
+↓
+Gat Number
+
+Then:
+
+Gat Number
+↓
+API
+↓
+New KMZ-derived Gat geometry
+↓
+Selected field
+↓
+Map
+
+Example:
+
+User selects:
+
+Malegaon
+Gat 22
+
+The map MUST display the polygon for:
+
+Gat 22
+
+from:
+
+Malegaon_Gat_Map_Final.kmz
+
+NOT another Gat.
+
+NOT a random polygon.
+
+NOT an old demo polygon.
+
+
+============================================================
+21. MY FARM PAGE
+============================================================
+
+Update the existing My Farm page to use the new Gat geometry.
+
+Keep the existing UI EXACTLY as it currently looks.
+
+Only replace the underlying boundary data.
+
+When Gat 22 is selected:
+
+→ show Gat 22 polygon
+
+When Gat 104 is selected:
+
+→ show Gat 104 polygon IF it exists in the new KMZ.
+
+When another Gat is selected:
+
+→ remove previous selected geometry
+→ load the correct new geometry
+→ fit map to the new polygon
+
+
+============================================================
+22. SOIL MAP PAGE
+============================================================
+
+The existing Soil Map page must also use the same new Gat geometry.
+
+IMPORTANT:
+
+The Gat boundary and soil raster layers must align spatially.
+
+The system should display:
+
+New Gat boundary
++
+Existing soil raster
++
+Existing NDVI/raster layers
++
+Existing basemap
+
+The new KMZ only replaces the boundary source.
+
+DO NOT remove or replace existing soil raster layers.
+
+
+============================================================
+23. DASHBOARD MAP
+============================================================
+
+If the dashboard contains a farm/field map preview:
+
+use the same new Gat geometry.
+
+Do not maintain a separate fake/demo polygon for the dashboard.
+
+There should be ONE source of truth for field boundaries.
+
+
+============================================================
+24. ONE SOURCE OF TRUTH
+============================================================
+
+After implementation, these pages must all resolve the same Gat through the same underlying field/GIS data:
+
+Dashboard
+My Farm
+Soil Map
+Soil Health Card
+Reports
+
+Example:
+
+Gat 22
+
+must refer to the same field identity and geometry everywhere.
+
+
+============================================================
+25. REMOVE HARDCODED DEMO POLYGONS
+============================================================
+
+Search the entire project for:
+
+coordinates
+polygon arrays
+GeoJSON objects
+mock field geometry
+demo boundaries
+sample Gat geometry
+hardcoded Gat 18
+hardcoded Gat 22
+hardcoded Gat 104
+old KML filenames
+old KMZ filenames
+
+If any of these are being used as the actual field boundary:
+
+replace them with the new GIS-backed geometry.
+
+Do NOT remove hardcoded coordinates that are used for legitimate basemap configuration or unrelated functionality.
+
+
+============================================================
+26. MAP DISPLAY
+============================================================
+
+The selected Gat polygon must be:
+
+- clearly visible
+- correctly positioned
+- correctly shaped
+- correctly scaled
+- highlighted
+- selectable
+- clickable
+
+Use the existing map styling.
+
+Do NOT redesign the map.
+
+Do NOT change the existing polygon colors unless necessary for visibility.
+
+When selected:
+
+Fit map to polygon bounds.
+
+The polygon should not appear as:
+
+- rectangle
+- approximate circle
+- bounding box
+- incorrect Gat
+- old demo boundary
+
+
+============================================================
+27. GAT LABEL / POPUP
+============================================================
+
+The existing popup should display the correct Gat.
+
+Example:
+
+Gat / गट क्र. 22
+
+Area:
+3.68 Acres (1.49 Ha)
+
+If the existing popup already includes:
+
+NDVI
+Plot Average
+Canopy Class
+Canopy Area
+
+keep all of those features.
+
+Only replace the underlying field geometry.
+
+Do not redesign the popup.
+
+
+============================================================
+28. KML/KMZ ORIGINAL FILE
+============================================================
+
+Keep the original:
+
+Malegaon_Gat_Map_Final.kmz
+
+inside the project's appropriate GIS/data source location.
+
+Do not modify the original source file.
+
+If a derived GeoJSON is generated, clearly treat it as:
+
+DERIVED DATA
+
+not the original source.
+
+Recommended structure conceptually:
+
+data/
+  gis/
+    source/
+      Malegaon_Gat_Map_Final.kmz
+
+    processed/
+      malegaon_gat_boundaries.geojson
+
+Use the project's existing folder structure if different.
+
+
+============================================================
+29. CACHE / STATIC DATA
+============================================================
+
+If the application uses generated GeoJSON/cache:
+
+regenerate it from:
+
+Malegaon_Gat_Map_Final.kmz
+
+Do NOT manually edit the generated GeoJSON to add missing Gat numbers.
+
+If the KMZ changes in the future, there should be a clear process to regenerate the derived data.
+
+
+============================================================
+30. SECURITY / ACCESS
+============================================================
+
+Do not expose unrelated farmer information.
+
+The boundary source can contain many Gats, but the existing farmer authorization rules must remain intact.
+
+A user should only be able to access field information according to the existing application authorization model.
+
+Do not remove authorization merely because the new KMZ contains all boundaries.
+
+
+============================================================
+31. NO FAKE FALLBACK
+============================================================
+
+This is very important.
+
+If Gat 22 exists in the new KMZ but cannot be loaded:
+
+SHOW AN ERROR.
+
+Do NOT show an old demo polygon.
+
+If a Gat does not exist:
+
+show:
+
+"No boundary found for this Gat Number."
+
+Do NOT display another Gat as a fallback.
+
+
+============================================================
+32. VALIDATION TEST
+============================================================
+
+After implementation, test multiple actual Gat numbers from:
+
+Malegaon_Gat_Map_Final.kmz
+
+Do not test only one.
+
+For each test:
+
+1. Select Gat.
+2. Call API.
+3. Verify returned Gat number.
+4. Verify geometry exists.
+5. Verify geometry coordinates.
+6. Display on map.
+7. Fit map to boundary.
+8. Confirm visual boundary.
+9. Confirm popup Gat number.
+10. Confirm area.
+11. Confirm soil raster alignment.
+12. Confirm no old demo geometry is displayed.
+
+
+============================================================
+33. IMPORTANT GIS TEST
+============================================================
+
+Pick at least 3 actual Gat numbers from the KMZ.
+
+For example:
+
+Gat A
+Gat B
+Gat C
+
+Do NOT assume these exact numbers exist.
+
+Use real numbers discovered from the KMZ.
+
+For each:
+
+Gat Number
+↓
+Boundary from KMZ
+↓
+Map
+
+Verify that changing Gat changes the polygon correctly.
+
+
+============================================================
+34. OLD FILE REMOVAL VERIFICATION
+============================================================
+
+After successful migration, search the project again for:
+
+old KML filename
+old KMZ filename
+old GeoJSON filename
+demo boundary filename
+mock polygon data
+hardcoded demo geometry
+
+There must be no active application reference to the old demo boundary source.
+
+If an old file is retained only for historical backup/documentation, it must NOT be referenced by runtime code.
+
+
+============================================================
+35. DO NOT DELETE DATABASE DATA
+============================================================
+
+DO NOT perform destructive database operations.
+
+NEVER run:
+
+DROP DATABASE
+DROP TABLE
+TRUNCATE
+DELETE FROM
+docker compose down -v
+
+Do not delete existing soil data.
+
+Do not delete existing raster data.
+
+Do not delete existing field records blindly.
+
+If database migration is required, make a safe migration and preserve existing data.
+
+
+============================================================
+36. DO NOT BREAK EXISTING SOIL DATA
+============================================================
+
+The new KMZ is ONLY replacing the Gat boundary source.
+
+Do NOT remove:
+
+- pH raster
+- SOC raster
+- nitrogen raster
+- bulk density raster
+- elevation
+- NDVI
+- EVI
+- CEC
+- clay
+- sand
+- silt
+- other soil layers
+- soil health data
+- reports
+- recommendations
+
+The new boundary must work together with the existing soil GIS layers.
+
+
+============================================================
+37. SPATIAL ALIGNMENT TEST
+============================================================
+
+This is CRITICAL.
+
+After loading the new Gat polygon:
+
+verify that it aligns with the existing:
+
+- satellite imagery
+- NDVI
+- soil raster
+- basemap
+
+If the boundary appears shifted:
+
+DO NOT modify the polygon coordinates randomly.
+
+Investigate:
+
+- CRS
+- SRID
+- axis order
+- longitude/latitude order
+- GeoJSON conversion
+- reprojection
+- map projection
+
+Fix the actual CRS problem.
+
+
+============================================================
+38. PERFORMANCE
+============================================================
+
+Do not parse the KMZ on every user click.
+
+Process the source appropriately.
+
+Preferred:
+
+KMZ
+↓
+preprocess/import
+↓
+validated GeoJSON/PostGIS
+↓
+API lookup
+
+Then the frontend requests only the required Gat geometry.
+
+Do NOT download and parse the entire KMZ every time a farmer selects a Gat.
+
+
+============================================================
+39. ERROR HANDLING
+============================================================
+
+Handle:
+
+- KMZ not found
+- KML not found inside KMZ
+- invalid KML
+- missing Gat attribute
+- duplicate Gat
+- invalid geometry
+- missing geometry
+- API error
+- database error
+- Gat not found
+- CRS error
+- empty geometry
+
+Use friendly UI messages.
+
+Never show a fake boundary.
+
+
+============================================================
+40. FINAL ACCEPTANCE CRITERIA
+============================================================
+
+The task is COMPLETE only when ALL of the following are true:
+
+✓ Malegaon_Gat_Map_Final.kmz is successfully analyzed.
+
+✓ The actual Gat-number field from the KMZ is identified.
+
+✓ All valid Gat geometries are extracted.
+
+✓ Gat numbers are normalized safely.
+
+✓ Duplicate/invalid/missing geometry cases are handled.
+
+✓ The new KMZ is the source of truth.
+
+✓ Old demo boundary files are no longer used.
+
+✓ Old demo boundary references are removed.
+
+✓ The existing website UI is NOT redesigned.
+
+✓ Dashboard uses the correct Gat boundary.
+
+✓ My Farm uses the correct Gat boundary.
+
+✓ Soil Map uses the correct Gat boundary.
+
+✓ Gat lookup returns the correct geometry.
+
+✓ The exact polygon from the KMZ appears on the map.
+
+✓ The correct Gat number appears in the popup.
+
+✓ Gat area is based on the actual geometry.
+
+✓ Existing soil raster layers continue working.
+
+✓ Existing NDVI layers continue working.
+
+✓ Existing canopy classification continues working.
+
+✓ No fake polygons exist.
+
+✓ No hardcoded demo boundary is being used.
+
+✓ No unrelated GIS data is deleted.
+
+✓ No database data is destroyed.
+
+✓ Multiple real Gat numbers have been tested.
+
+✓ Changing Gat changes the displayed boundary correctly.
+
+✓ The map automatically fits the selected Gat.
+
+✓ The boundary is spatially aligned with the existing raster layers.
+
+✓ No browser console errors.
+
+✓ No API errors.
+
+✓ No infinite loading.
+
+✓ No map blinking caused by repeated KMZ processing.
+
+✓ Frontend build succeeds.
+
+✓ Backend/API tests succeed where available.
+
+
+============================================================
+41. FINAL REPORT TO ME
+============================================================
+
+After completing the work, provide a concise implementation report containing:
+
+1. New source file:
+   Malegaon_Gat_Map_Final.kmz
+
+2. Number of Placemarks found.
+
+3. Number of valid Gat boundaries.
+
+4. Number of unique Gat numbers.
+
+5. Duplicate Gat numbers, if any.
+
+6. Missing/invalid geometries, if any.
+
+7. Actual Gat-number field discovered.
+
+8. Where the processed GIS data is stored.
+
+9. Which old demo boundary files were removed.
+
+10. Which old references were removed.
+
+11. Which API endpoint now serves Gat geometry.
+
+12. Which frontend pages now use the new geometry.
+
+13. Test Gat numbers used.
+
+14. Whether the boundaries visually aligned with the basemap/raster layers.
+
+15. Build/test result.
+
+If anything could not be completed, clearly state:
+
+NOT COMPLETED
+REASON
+WHAT IS REQUIRED
+
+Do not claim success if the actual boundary was not verified.
+
+============================================================
+MOST IMPORTANT RULE
+============================================================
+
+DO NOT REBUILD THE WEBSITE.
+
+DO NOT REDESIGN THE MAP.
+
+DO NOT CREATE NEW FAKE GAT BOUNDARIES.
+
+DO NOT USE OLD DEMO BOUNDARIES.
+
+DO NOT ASSUME GAT NUMBERS.
+
+DO NOT HARD-CODE GAT POLYGONS.
+
+USE THE ACTUAL:
+
+Malegaon_Gat_Map_Final.kmz
+
+AS THE NEW SOURCE OF TRUTH.
+
+The final result must be:
+
+ACTUAL KMZ
+→ ACTUAL GAT NUMBER
+→ ACTUAL GAT GEOMETRY
+→ EXISTING API
+→ EXISTING SOILPILOT MAP
+→ EXACT GAT BOUNDARY
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-07T12:35:14+05:30.
+
+The user's current state is as follows:
+Other open documents:
+- d:\SoilPilot_01-main_bypranav_final\frontend\i18n\locales\mr.json (LANGUAGE_JSON)
+- d:\SoilPilot_01-main_bypranav_final\frontend\public\data\dsm\manifest.json (LANGUAGE_JSON)
+- d:\SoilPilot_01-main_bypranav_final\frontend\i18n\marathiHelper.ts (LANGUAGE_TYPESCRIPT)
+- d:\SoilPilot_01-main_bypranav_final\frontend\components\map\MapLegend.tsx (LANGUAGE_TSX)
+- d:\SoilPilot_01-main_bypranav_final\backend\app\api\v1\router.py (LANGUAGE_PYTHON)
+</ADDITIONAL_METADATA>

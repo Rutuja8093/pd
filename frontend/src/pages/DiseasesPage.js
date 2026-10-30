@@ -14,18 +14,19 @@ const HERO_IMAGES = [
 ];
 
 const PRACTICE_CONFIG = [
-  { key: 'cultural_practices', icon: Sprout, title: 'Cultural Practices', titleMr: 'सांस्कृतिक पद्धती', titleHi: 'सांस्कृतिक प्रथाएं', gradient: 'from-[#1A3626] to-[#2D5A3E]' },
-  { key: 'mechanical_practices', icon: Wrench, title: 'Mechanical Practices', titleMr: 'यांत्रिक पद्धती', titleHi: 'यांत्रिक प्रथाएं', gradient: 'from-[#57695D] to-[#6B8072]' },
-  { key: 'biological_practices', icon: Bug, title: 'Biological Practices', titleMr: 'जैविक पद्धती', titleHi: 'जैविक प्रथाएं', gradient: 'from-[#839E88] to-[#9AB79F]' },
-  { key: 'chemical_practices', icon: FlaskConical, title: 'Chemical Practices', titleMr: 'रासायनिक पद्धती', titleHi: 'रासायनिक प्रथाएं', gradient: 'from-[#C25E4B] to-[#D4776A]' },
-  { key: 'spray_timing', icon: Clock, title: 'When & How to Spray', titleMr: 'फवारणी कधी व कशी', titleHi: 'कब और कैसे छिड़काव करें', gradient: 'from-[#B36B00] to-[#CC8A2E]' },
+  { key: 'cultural_practices', icon: Sprout, titleKey: 'culturalPractices', gradient: 'from-[#1A3626] to-[#2D5A3E]' },
+  { key: 'mechanical_practices', icon: Wrench, titleKey: 'mechanicalPractices', gradient: 'from-[#57695D] to-[#6B8072]' },
+  { key: 'biological_practices', icon: Bug, titleKey: 'biologicalPractices', gradient: 'from-[#839E88] to-[#9AB79F]' },
+  { key: 'chemical_practices', icon: FlaskConical, titleKey: 'chemicalPractices', gradient: 'from-[#C25E4B] to-[#D4776A]' },
+  { key: 'spray_timing', icon: Clock, titleKey: 'whenHowToSpray', gradient: 'from-[#B36B00] to-[#CC8A2E]' },
 ];
 
-const PracticeSection = ({ config, items, lang, delay = 0 }) => {
+const PracticeSection = ({ config, items, delay = 0 }) => {
   const [open, setOpen] = useState(false);
+  const { t } = useTranslation();
   if (!items || items.length === 0) return null;
   const Icon = config.icon;
-  const title = lang === 'mr' ? config.titleMr : lang === 'hi' ? config.titleHi : config.title;
+  const title = t(config.titleKey);
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}>
@@ -110,11 +111,11 @@ export const DiseasesPage = () => {
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">{t('diseases')}</h1>
-                <p className="text-sm text-white/70">23 diseases & pests</p>
+                <p className="text-sm text-white/70">{t('diseasesCountSubtitle')}</p>
               </div>
             </div>
             <p className="text-white/80 text-sm sm:text-base max-w-lg leading-relaxed">
-              Complete management guide with cultural, mechanical, biological & chemical practices
+              {t('diseasesHeroDesc')}
             </p>
           </div>
         </div>
@@ -161,7 +162,7 @@ export const DiseasesPage = () => {
                     </motion.button>
                   ))}
                 </div>
-                <p className="text-xs text-[#839E88] text-center pt-2">{diseaseNames.length} diseases found</p>
+                <p className="text-xs text-[#839E88] text-center pt-2">{diseaseNames.length} {t('diseasesFound')}</p>
               </div>
             </div>
 
@@ -220,16 +221,16 @@ export const DiseasesPage = () => {
                         </div>
                         <div>
                           <h3 className="text-lg font-bold text-[#1A3626]">
-                            {i18n.language === 'mr' ? 'व्यवस्थापन पद्धती' : i18n.language === 'hi' ? 'प्रबंधन प्रथाएं' : 'Management Practices'}
+                            {t('managementPractices')}
                           </h3>
                           <p className="text-xs text-[#839E88]">
-                            {i18n.language === 'mr' ? 'प्रत्येक विभाग विस्तारित करा' : i18n.language === 'hi' ? 'प्रत्येक अनुभाग विस्तृत करें' : 'Expand each section for detailed guidelines'}
+                            {t('expandSectionGuidelines')}
                           </p>
                         </div>
                       </div>
                       <div className="space-y-3">
                         {PRACTICE_CONFIG.map((config, i) => (
-                          <PracticeSection key={config.key} config={config} items={selected[config.key]} lang={i18n.language} delay={i * 0.06} />
+                          <PracticeSection key={config.key} config={config} items={selected[config.key]} delay={i * 0.06} />
                         ))}
                       </div>
                     </div>
@@ -238,7 +239,7 @@ export const DiseasesPage = () => {
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     className="bg-[#FDFDFB] border border-[#1A3626]/10 rounded-2xl p-16 text-center">
                     <Leaf className="w-16 h-16 mx-auto text-[#E8E8E3] mb-4" />
-                    <p className="text-[#839E88]">Select a disease to view details</p>
+                    <p className="text-[#839E88]">{t('selectDiseaseToView')}</p>
                   </motion.div>
                 )}
               </AnimatePresence>

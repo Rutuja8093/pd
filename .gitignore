@@ -146,3 +146,4 @@ credentials.json
 *.key
 .credentials
 backend/models/best_unet.pth
+backend/mongo_data/

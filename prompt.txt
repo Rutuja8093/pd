@@ -1,0 +1,177 @@
+<USER_REQUEST>
+MASTER PROMPT — REPLACE OLD DEMO GAT BOUNDARIES WITH
+Malegaon_Gat_Map_Final.kmz
+
+PROJECT:
+SoilPilot — Digital Soil Mapping & Soil Health Portal
+
+TASK:
+I have added a new GIS file:
+
+Malegaon_Gat_Map_Final.kmz
+
+This KMZ contains the actual Gat/plot boundaries for Malegaon.
+
+I want this NEW KMZ to become the PRIMARY AND ONLY SOURCE OF TRUTH for Gat boundaries in the website.
+
+The website must display the EXACT Gat boundary corresponding to the Gat Number selected/entered by the user.
+
+IMPORTANT:
+
+DO NOT redesign the website.
+
+DO NOT change the existing UI.
+
+DO NOT change the existing map design.
+
+DO NOT create fake boundaries.
+
+DO NOT approximate boundaries.
+
+DO NOT generate rectangles/polygons manually.
+
+DO NOT use the previous demo KML/KMZ files.
+
+DO NOT silently fall back to old demo boundary files.
+
+Use the actual geometry contained inside:
+
+Malegaon_Gat_Map_Final.kmz
+
+
+============================================================
+1. PRIMARY OBJECTIVE
+============================================================
+
+Replace the old/demo Gat boundary source with:
+
+Malegaon_Gat_Map_Final.kmz
+
+The complete flow must become:
+
+Malegaon_Gat_Map_Final.kmz
+        ↓
+Extract KMZ
+        ↓
+Read KML
+        ↓
+Inspect Placemark attributes
+        ↓
+Identify Gat Number
+        ↓
+Extract exact polygon geometry
+        ↓
+Validate geometry
+        ↓
+Convert to GeoJSON / PostGIS geometry
+        ↓
+Store/use in existing SoilPilot GIS architecture
+        ↓
+API
+        ↓
+Gat Number lookup
+        ↓
+Selected Gat geometry
+        ↓
+Map
+        ↓
+EXACT Gat boundary displayed
+
+
+============================================================
+2. FIRST STEP — READ-ONLY AUDIT
+============================================================
+
+BEFORE changing anything, inspect the complete existing project.
+
+Do NOT immediately start editing.
+
+First identify:
+
+- current KML/KMZ files
+- current GeoJSON files
+- old demo 
+<truncated 24784 bytes>
+ort containing:
+
+1. New source file:
+   Malegaon_Gat_Map_Final.kmz
+
+2. Number of Placemarks found.
+
+3. Number of valid Gat boundaries.
+
+4. Number of unique Gat numbers.
+
+5. Duplicate Gat numbers, if any.
+
+6. Missing/invalid geometries, if any.
+
+7. Actual Gat-number field discovered.
+
+8. Where the processed GIS data is stored.
+
+9. Which old demo boundary files were removed.
+
+10. Which old references were removed.
+
+11. Which API endpoint now serves Gat geometry.
+
+12. Which frontend pages now use the new geometry.
+
+13. Test Gat numbers used.
+
+14. Whether the boundaries visually aligned with the basemap/raster layers.
+
+15. Build/test result.
+
+If anything could not be completed, clearly state:
+
+NOT COMPLETED
+REASON
+WHAT IS REQUIRED
+
+Do not claim success if the actual boundary was not verified.
+
+============================================================
+MOST IMPORTANT RULE
+============================================================
+
+DO NOT REBUILD THE WEBSITE.
+
+DO NOT REDESIGN THE MAP.
+
+DO NOT CREATE NEW FAKE GAT BOUNDARIES.
+
+DO NOT USE OLD DEMO BOUNDARIES.
+
+DO NOT ASSUME GAT NUMBERS.
+
+DO NOT HARD-CODE GAT POLYGONS.
+
+USE THE ACTUAL:
+
+Malegaon_Gat_Map_Final.kmz
+
+AS THE NEW SOURCE OF TRUTH.
+
+The final result must be:
+
+ACTUAL KMZ
+→ ACTUAL GAT NUMBER
+→ ACTUAL GAT GEOMETRY
+→ EXISTING API
+→ EXISTING SOILPILOT MAP
+→ EXACT GAT BOUNDARY
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-10-07T12:35:14+05:30.
+
+The user's current state is as follows:
+Other open documents:
+- d:\SoilPilot_01-main_bypranav_final\frontend\i18n\locales\mr.json (LANGUAGE_JSON)
+- d:\SoilPilot_01-main_bypranav_final\frontend\public\data\dsm\manifest.json (LANGUAGE_JSON)
+- d:\SoilPilot_01-main_bypranav_final\frontend\i18n\marathiHelper.ts (LANGUAGE_TYPESCRIPT)
+- d:\SoilPilot_01-main_bypranav_final\frontend\components\map\MapLegend.tsx (LANGUAGE_TSX)
+- d:\SoilPilot_01-main_bypranav_final\backend\app\api\v1\router.py (LANGUAGE_PYTHON)
+</ADDITIONAL_METADATA>

@@ -46,11 +46,11 @@ export const LoginPage = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold tracking-tight">SUGARCANE AI</h2>
-              <p className="text-sm text-white/70">Smart Disease Detection</p>
+              <p className="text-sm text-white/70">{t('smartDiseaseDetection')}</p>
             </div>
           </div>
           <p className="text-lg text-white/80 leading-relaxed max-w-md">
-            AI-powered sugarcane disease analysis with expert-verified results and actionable treatment recommendations.
+            {t('heroDescription')}
           </p>
         </div>
       </div>
@@ -75,7 +75,7 @@ export const LoginPage = () => {
           <h1 className="text-4xl sm:text-5xl font-extrabold text-[#1A3626] tracking-tight mb-2">
             {t('login')}
           </h1>
-          <p className="text-[#57695D] mb-8">Sign in to access your dashboard</p>
+          <p className="text-[#57695D] mb-8">{t('signInSubtitle')}</p>
 
           {error && (
             <div className="bg-[#F5D0C9] border border-[#E29D90] text-[#8F2C1A] px-4 py-3 rounded-xl mb-6 text-sm font-medium">
@@ -91,7 +91,7 @@ export const LoginPage = () => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
+                placeholder={t('enterUsername')}
                 required
                 className="w-full bg-[#FDFDFB] border border-[#839E88]/40 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#1A3626] focus:border-transparent outline-none transition-all text-[#1A3626] placeholder:text-[#839E88]"
               />
@@ -104,7 +104,7 @@ export const LoginPage = () => {
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
+                  placeholder={t('enterPassword')}
                   required
                   className="w-full bg-[#FDFDFB] border border-[#839E88]/40 rounded-lg px-4 py-3 pr-12 focus:ring-2 focus:ring-[#1A3626] focus:border-transparent outline-none transition-all text-[#1A3626] placeholder:text-[#839E88]"
                 />

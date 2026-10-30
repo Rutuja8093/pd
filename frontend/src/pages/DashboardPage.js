@@ -34,6 +34,13 @@ const PracticeAccordion = ({ section }) => {
   );
 };
 
+const severityBadge = (sev) => {
+  const s = (sev || 'low').toLowerCase();
+  if (s === 'high') return 'bg-[#F5D0C9] text-[#8F2C1A] border-[#E29D90]';
+  if (s === 'medium') return 'bg-[#FCE5CD] text-[#B36B00] border-[#F3C185]';
+  return 'bg-[#D7E8D6] text-[#1A3626] border-[#A3C4A5]';
+};
+
 export const DashboardPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -72,10 +79,11 @@ export const DashboardPage = () => {
     const formData = new FormData();
     formData.append('file', selectedFile);
     try {
-      const { data } = await axios.post(`${API_URL}/api/detect`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, withCredentials: true });
+      const lang = i18n.language || 'en';
+      const { data } = await axios.post(`${API_URL}/api/detect?lang=${lang}`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, withCredentials: true });
       setResult(data);
     } catch (error) {
-      alert('Detection failed. Please try again.');
+      alert(t('detectionFailed'));
     } finally {
       setDetecting(false);
     }
@@ -111,7 +119,7 @@ export const DashboardPage = () => {
                   </div>
                   <p className="text-[#1A3626] font-semibold text-lg mb-1">{t('uploadImage')}</p>
                   <p className="text-sm text-[#839E88]">{t('dragDrop')}</p>
-                  <p className="text-xs text-[#839E88]/70 mt-3">JPG, PNG up to 10MB</p>
+                  <p className="text-xs text-[#839E88]/70 mt-3">{t('fileHint')}</p>
                 </div>
               )}
             </div>
@@ -146,13 +154,65 @@ export const DashboardPage = () => {
                   data-testid="detection-result"
                   className="bg-[#FDFDFB] border border-[#1A3626]/10 rounded-2xl shadow-[4px_4px_10px_rgba(26,54,38,0.05),-4px_-4px_10px_rgba(255,255,255,1)] p-7 space-y-5"
                 >
-                  {result.overlay_path && (
+                  {result.overlay_path && result.disease !== 'Unrecognized' && (
                     <div className="rounded-xl overflow-hidden bg-[#E8E8E3]">
                       <img src={`${API_URL}/api/files/${result.overlay_path}`} alt="Segmentation" className="w-full h-auto" />
                     </div>
                   )}
+
+                  {/* Disease Header */}
+                  <div className="bg-[#F5F5F0] rounded-xl p-4 border border-[#1A3626]/10 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs uppercase tracking-[0.2em] font-bold text-[#839E88]">{t('disease')}</span>
+                      {result.disease === 'Unrecognized' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase tracking-wider bg-[#FCE5CD] text-[#B36B00] border-[#F3C185]">
+                          {t('notSupported')}
+                        </span>
+                      ) : (
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase tracking-wider ${severityBadge(result.severity || result.ai_severity)}`}>
+                          {result.severity || result.ai_severity}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-extrabold text-[#1A3626]">
+                        {result.disease === 'Unrecognized' ? t('unrecognizedDisease') : (result.disease_name_local || result.disease)}
+                      </h3>
+                      {result.disease !== 'Unrecognized' && result.disease_name_local && result.disease_name_local !== result.disease && (
+                        <p className="text-xs text-[#839E88] font-medium mt-0.5">({result.disease})</p>
+                      )}
+                    </div>
+
+                    {result.disease !== 'Unrecognized' && result.ai_predictions && result.ai_predictions.length > 1 && (
+                      <div className="pt-2 border-t border-[#1A3626]/10 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase tracking-wider font-bold text-[#839E88]">{t('aiDetectionModels')}</span>
+                          {result.is_co_infection && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-[#FCE5CD] text-[#B36B00] border border-[#F3C185]">
+                              {t('dualDetection')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="space-y-1.5">
+                          {result.ai_predictions.map((p, idx) => (
+                            <div key={idx} className="bg-white rounded-lg p-2.5 border border-[#1A3626]/10 flex items-center justify-between shadow-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: p.disease === 'Red Rot' ? '#DC2626' : (p.disease === 'Brown Rust' ? '#EA580C' : '#84CC16') }}></span>
+                                <p className="text-sm font-bold text-[#1A3626]">{p.disease}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-semibold text-[#57695D]">{Math.round((p.confidence || 0) * 100)}%</span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider ${severityBadge(p.severity)}`}>{p.severity}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {result.disease === 'Unrecognized' ? (
-                    <div className="bg-[#FCE5CD] border border-[#F3C185] rounded-xl p-5">
+                    <div className="bg-[#FCE5CD]/60 border border-[#F3C185] rounded-xl p-5 space-y-3">
                       <div className="flex items-start space-x-3">
                         <AlertTriangle className="w-7 h-7 text-[#B36B00] flex-shrink-0 mt-0.5" />
                         <div>
@@ -160,17 +220,119 @@ export const DashboardPage = () => {
                           <p className="text-sm text-[#57695D] mt-1.5 leading-relaxed">{t('unrecognizedMsg')}</p>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="bg-[#FCE5CD] border border-[#F3C185] rounded-xl p-5">
-                      <div className="flex items-start space-x-3">
-                        <Clock className="w-7 h-7 text-[#B36B00] flex-shrink-0 mt-0.5" />
-                        <div>
-                          <h3 className="text-base font-bold text-[#1A3626]">{t('submittedForReview')}</h3>
-                          <p className="text-sm text-[#57695D] mt-1.5 leading-relaxed">{t('submittedMsg')}</p>
+                      <div className="bg-white/80 rounded-lg p-3 border border-[#F3C185]/40 text-xs space-y-1.5">
+                        <p className="font-bold text-[#1A3626]">🌿 Supported Sugarcane Leaf Diseases:</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                          <div className="p-2 bg-[#F5F5F0] rounded border border-[#1A3626]/10 font-semibold text-[#1A3626]">1. Brown Rust</div>
+                          <div className="p-2 bg-[#F5F5F0] rounded border border-[#1A3626]/10 font-semibold text-[#1A3626]">2. Red Rot</div>
+                          <div className="p-2 bg-[#F5F5F0] rounded border border-[#1A3626]/10 font-semibold text-[#1A3626]">3. Mosaic</div>
                         </div>
                       </div>
                     </div>
+                  ) : result.disease === 'Healthy' ? (
+                    <div className="bg-[#D7E8D6] border border-[#A3C4A5] rounded-xl p-5">
+                      <div className="flex items-start space-x-3">
+                        <ShieldCheck className="w-7 h-7 text-[#1A3626] flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h3 className="text-base font-bold text-[#1A3626]">{result.disease_name_local || t('healthy')}</h3>
+                          <p className="text-sm text-[#57695D] mt-1.5 leading-relaxed">{result.symptoms || t('healthyTissueMsg')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Immediate Treatment Card */}
+                      {result.treatment && (
+                        <div className="bg-[#D7E8D6] border border-[#A3C4A5] rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <Pill className="w-4 h-4 text-[#1A3626]" />
+                            <h4 className="text-xs uppercase tracking-[0.2em] font-bold text-[#1A3626]">{t('treatment')}</h4>
+                          </div>
+                          <p className="text-sm text-[#1A3626] leading-relaxed font-medium">{result.treatment}</p>
+                        </div>
+                      )}
+
+                      {/* Symptoms & Causes Grid */}
+                      <div className="grid grid-cols-1 gap-3">
+                        {result.symptoms && (
+                          <div className="bg-[#F5F5F0] rounded-xl p-3.5 border border-[#1A3626]/10">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Bug className="w-4 h-4 text-[#C25E4B]" />
+                              <h4 className="text-xs uppercase tracking-[0.2em] font-bold text-[#839E88]">{t('symptoms')}</h4>
+                            </div>
+                            <p className="text-xs text-[#57695D] leading-relaxed whitespace-pre-line">{result.symptoms}</p>
+                          </div>
+                        )}
+                        {result.causes && (
+                          <div className="bg-[#F5F5F0] rounded-xl p-3.5 border border-[#1A3626]/10">
+                            <div className="flex items-center gap-2 mb-1">
+                              <ShieldAlert className="w-4 h-4 text-[#B36B00]" />
+                              <h4 className="text-xs uppercase tracking-[0.2em] font-bold text-[#839E88]">{t('causes')}</h4>
+                            </div>
+                            <p className="text-xs text-[#57695D] leading-relaxed">{result.causes}</p>
+                          </div>
+                        )}
+                        {result.prevention && (
+                          <div className="bg-[#F5F5F0] rounded-xl p-3.5 border border-[#1A3626]/10">
+                            <div className="flex items-center gap-2 mb-1">
+                              <ShieldCheck className="w-4 h-4 text-[#1A3626]" />
+                              <h4 className="text-xs uppercase tracking-[0.2em] font-bold text-[#839E88]">{t('prevention')}</h4>
+                            </div>
+                            <p className="text-xs text-[#57695D] leading-relaxed">{result.prevention}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Management Practices Accordions */}
+                      {(result.cultural_practices?.length > 0 || result.mechanical_practices?.length > 0 || result.biological_practices?.length > 0 || result.chemical_practices?.length > 0 || result.spray_timing?.length > 0) && (
+                        <div className="space-y-2 pt-1">
+                          <p className="text-xs uppercase tracking-[0.2em] font-bold text-[#839E88]">
+                            {t('managementPractices')}
+                          </p>
+                          {[
+                            { items: result.cultural_practices || [], icon: Sprout, label: t('culturalPractices'), color: 'bg-[#1A3626]' },
+                            { items: result.mechanical_practices || [], icon: Wrench, label: t('mechanicalPractices'), color: 'bg-[#57695D]' },
+                            { items: result.biological_practices || [], icon: Bug, label: t('biologicalPractices'), color: 'bg-[#839E88]' },
+                            { items: result.chemical_practices || [], icon: FlaskConical, label: t('chemicalPractices'), color: 'bg-[#C25E4B]' },
+                            { items: result.spray_timing || [], icon: Clock, label: t('sprayTiming'), color: 'bg-[#B36B00]' },
+                          ].filter(s => s.items.length > 0).map((section, idx) => (
+                            <PracticeAccordion key={idx} section={section} />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Chemical Reference Table */}
+                      {result.chemical_reference?.length > 0 && (
+                        <div className="bg-[#F5F5F0] border border-[#1A3626]/10 rounded-xl p-3.5 space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <FlaskConical className="w-3.5 h-3.5 text-[#C25E4B]" />
+                            <h4 className="text-xs uppercase tracking-[0.2em] font-bold text-[#1A3626]">
+                              {t('chemicalReference')}
+                            </h4>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-left text-[#839E88] uppercase tracking-wider border-b border-[#1A3626]/10">
+                                  <th className="pb-1 pr-2 font-bold">{t('product')}</th>
+                                  <th className="pb-1 pr-2 font-bold">{t('dosage')}</th>
+                                  <th className="pb-1 font-bold">{t('group')}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {result.chemical_reference.map((row, ri) => (
+                                  <tr key={ri} className="border-t border-[#1A3626]/5">
+                                    <td className="py-1.5 pr-2 text-[#1A3626] font-medium">{row.product}</td>
+                                    <td className="py-1.5 pr-2 text-[#57695D]">{row.dosage}</td>
+                                    <td className="py-1.5 text-[#57695D]">{row.group}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </motion.div>
               ) : (

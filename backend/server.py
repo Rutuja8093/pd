@@ -23,6 +23,8 @@ from torchvision import transforms
 from disease_translations import DISEASE_INFO_MR, DISEASE_INFO_HI
 from disease_practices import DISEASE_PRACTICES
 from disease_practices_mr import DISEASE_PRACTICES_MR
+from chemical_reference import get_chemical_reference
+from disease_rules import combine_model_and_rules, combine_ensemble_models_and_rules
 
 logging.basicConfig(
     level=logging.INFO,
@@ -79,14 +81,41 @@ try:
         classes=4,
         activation=None
     )
-    unet_weights_path = ROOT_DIR / "models" / "best_unet.pth"
+    unet_weights_path = ROOT_DIR / "models" / "best_unet_resnet34.pth"
+    if not unet_weights_path.exists():
+        unet_weights_path = ROOT_DIR / "models" / "best_unet.pth"
+    
     state = torch.load(str(unet_weights_path), map_location="cpu", weights_only=False)
     unet_model.load_state_dict(state)
     unet_model.eval()
-    logging.info("UNet model (best_unet.pth) loaded successfully - 4 classes")
+    logging.info(f"UNet model ({unet_weights_path.name}) loaded successfully - 4 classes")
 except Exception as e:
     logging.error(f"Failed to load UNet model: {e}")
-    logging.info("Will rely on GPT Vision API only")
+
+# Load EfficientNet-B0 model (.pth file 2: classification)
+EFF_CLASSES = ['Brown Rust', 'Mosaic', 'Red Rot']
+eff_model = None
+eff_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+
+try:
+    from torchvision import models
+    eff_weights_path = ROOT_DIR / "models" / "best_sugarcane_efficientnetb0.pth"
+    if not eff_weights_path.exists():
+        eff_weights_path = ROOT_DIR / "models" / "best_sugarcane_efficientnetb0 (1).pth"
+        
+    if eff_weights_path.exists():
+        eff_data = torch.load(str(eff_weights_path), map_location="cpu", weights_only=False)
+        eff_model = models.efficientnet_b0(weights=None)
+        eff_model.classifier[1] = torch.nn.Linear(1280, len(EFF_CLASSES))
+        eff_model.load_state_dict(eff_data["model_state_dict"])
+        eff_model.eval()
+        logging.info(f"EfficientNet-B0 model ({eff_weights_path.name}) loaded successfully - 3 classes")
+except Exception as e:
+    logging.error(f"Failed to load EfficientNet-B0 model: {e}")
 
 
 # Disease Information Database — only UNet-supported diseases
@@ -120,17 +149,83 @@ DISEASE_INFO = {
         "syngenta_products": []
     },
     "Unrecognized": {
-        "symptoms": "Could not be identified by our model",
-        "causes": "This disease is not yet supported by our detection model",
-        "prevention": "Consult with agricultural experts for guidance",
-        "treatment": "Admin will review your scan and provide personalized suggestions",
+        "symptoms": "Only 3 sugarcane diseases are supported: Brown Rust, Red Rot, and Mosaic (plus Healthy leaf). The uploaded image does not match any supported sugarcane leaf disease.",
+        "causes": "Unsupported disease, pest/insect (e.g. White Grub, borers), non-leaf object, or non-sugarcane crop.",
+        "prevention": "Upload a clear photograph of a sugarcane leaf showing symptoms of Brown Rust, Red Rot, or Mosaic.",
+        "treatment": "Our AI model currently supports Brown Rust, Red Rot, and Mosaic. For other pests or diseases, consult your local agricultural university (KVK) or extension specialist.",
         "syngenta_products": []
     }
 }
 
 
+def get_disease_info_and_practices(disease_name: str) -> tuple:
+    """Retrieves or synthesizes disease info and practices for single or dual/co-infection diseases."""
+    if " & " in disease_name:
+        parts = [p.strip() for p in disease_name.split(" & ")]
+        d1, d2 = parts[0], parts[1]
+        
+        info1 = DISEASE_INFO.get(d1, DISEASE_INFO.get("Healthy", {}))
+        info2 = DISEASE_INFO.get(d2, DISEASE_INFO.get("Healthy", {}))
+        prac1 = DISEASE_PRACTICES.get(d1, {})
+        prac2 = DISEASE_PRACTICES.get(d2, {})
+        
+        merged_info = {
+            "symptoms": f"• {d1}: {info1.get('symptoms', '')}\n• {d2}: {info2.get('symptoms', '')}",
+            "causes": f"Co-infection / concurrent occurrence of {d1} and {d2}. Favored by warm humid conditions and moisture.",
+            "prevention": f"Integrated management: {info1.get('prevention', '')}; {info2.get('prevention', '')}",
+            "treatment": f"Dual Disease Treatment: Spray Propiconazole (400 ml/acre) or Difenoconazole (150 ml/acre) for rust pustules and apply Carbendazim (400 g/acre) or Azoxystrobin + Difenoconazole for Red Rot. Rogue and destroy heavily infected lower leaves.",
+            "syngenta_products": list(dict.fromkeys(info1.get("syngenta_products", []) + info2.get("syngenta_products", []) + ["Azoxystrobin + Difenoconazole"]))
+        }
+        
+        def merge_list(k):
+            seen = set()
+            out = []
+            for item in (prac1.get(k, []) + prac2.get(k, [])):
+                if item and item not in seen:
+                    seen.add(item)
+                    out.append(item)
+            return out
+            
+        merged_practices = {
+            "cultural": merge_list("cultural"),
+            "mechanical": merge_list("mechanical"),
+            "biological": merge_list("biological"),
+            "chemical": merge_list("chemical"),
+            "timing": merge_list("timing"),
+        }
+        return merged_info, merged_practices
+        
+    d_info = None
+    for k, v in DISEASE_INFO.items():
+        if k.lower() == disease_name.lower():
+            d_info = dict(v)
+            disease_name = k
+            break
+    if not d_info:
+        d_info = DISEASE_INFO.get("Healthy", {
+            "symptoms": "Unknown", "causes": "Unknown", "prevention": "Unknown", "treatment": "Unknown", "syngenta_products": []
+        })
+    practices = DISEASE_PRACTICES.get(disease_name, {})
+    return d_info, practices
+
+
 def get_translated_disease_info(disease_name: str, lang: str = "en") -> Dict[str, Any]:
     """Get disease info in the requested language"""
+    if " & " in disease_name:
+        parts = [p.strip() for p in disease_name.split(" & ")]
+        info1 = get_translated_disease_info(parts[0], lang)
+        info2 = get_translated_disease_info(parts[1], lang)
+        sep = " आणि " if lang == "mr" else (" और " if lang == "hi" else " & ")
+        local_name = f"{info1.get('disease_name_local', parts[0])}{sep}{info2.get('disease_name_local', parts[1])}"
+        return {
+            "disease_name_local": local_name,
+            "symptoms": f"• {parts[0]}: {info1.get('symptoms', '')}\n• {parts[1]}: {info2.get('symptoms', '')}",
+            "causes": f"{info1.get('causes', '')}; {info2.get('causes', '')}",
+            "prevention": f"{info1.get('prevention', '')}; {info2.get('prevention', '')}",
+            "treatment": f"{info1.get('treatment', '')}; {info2.get('treatment', '')}",
+            "syngenta_products": ["Azoxystrobin + Difenoconazole"],
+        }
+        
     # Get English info as base
     info = None
     for key, val in DISEASE_INFO.items():
@@ -139,7 +234,6 @@ def get_translated_disease_info(disease_name: str, lang: str = "en") -> Dict[str
             disease_name = key
             break
     if not info:
-        # Disease not in DISEASE_INFO — create a minimal base
         info = {"symptoms": "", "causes": "", "prevention": "", "treatment": "", "syngenta_products": []}
     
     if lang == "mr" and disease_name in DISEASE_INFO_MR:
@@ -256,7 +350,7 @@ MIN_AFFECTED_RATIO = 0.02   # At least 2% of confident pixels must be disease to
 async def detect_disease_unet(image_bytes: bytes) -> Dict[str, Any]:
     """Primary: Use trained UNet model for segmentation and classification"""
     if not unet_model:
-        return {"disease": None, "severity": "unknown", "mask_data": None}
+        return {"disease": None, "severity": "unknown", "mask_data": None, "class_probs": {}}
     
     try:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
@@ -288,9 +382,32 @@ async def detect_disease_unet(image_bytes: bytes) -> Dict[str, Any]:
                 class_counts[cls_id] = count
                 avg_confidences[cls_id] = float(np.mean(probs[cls_id][cls_mask]))
         
+        # Build normalized class_probs for unet
+        unet_class_probs = {}
+        detected_classes = {}
+        for cls_id in (1, 2, 3):
+            cname = UNET_CLASSES[cls_id]
+            if cls_id in class_counts:
+                unet_class_probs[cname] = float(avg_confidences[cls_id])
+                detected_classes[cname] = {
+                    "pixels": class_counts[cls_id],
+                    "ratio": class_counts[cls_id] / total_pixels,
+                    "confidence": float(avg_confidences[cls_id]),
+                }
+            else:
+                unet_class_probs[cname] = float(np.mean(probs[cls_id]))
+        
         if not class_counts:
             logging.info("UNet: No disease pixels above confidence threshold")
-            return {"disease": None, "severity": "low", "mask_data": None}
+            return {
+                "disease": None,
+                "confidence": 0.0,
+                "severity": "low",
+                "mask_data": None,
+                "class_probs": unet_class_probs,
+                "detected_classes": {},
+                "pred_mask": None,
+            }
         
         # Dominant disease class (most pixels)
         dominant_cls = max(class_counts, key=class_counts.get)
@@ -300,10 +417,18 @@ async def detect_disease_unet(image_bytes: bytes) -> Dict[str, Any]:
         
         logging.info(f"UNet detail: {disease_name}, pixels={class_counts[dominant_cls]}, affected={round(affected_ratio*100,2)}%, avg_conf={round(avg_conf*100,1)}%")
         
-        # If affected area is too small, treat as noise / unrecognized
-        if affected_ratio < MIN_AFFECTED_RATIO:
-            logging.info(f"UNet: {disease_name} detected but only {round(affected_ratio*100,1)}% — below minimum threshold, treating as unrecognized")
-            return {"disease": None, "severity": "low", "mask_data": None}
+        # If affected area is too small and not confident enough, treat as noise
+        if affected_ratio < 0.003 or (affected_ratio < MIN_AFFECTED_RATIO and avg_conf < 0.80):
+            logging.info(f"UNet: {disease_name} detected but only {round(affected_ratio*100,2)}% with {round(avg_conf*100,1)}% conf — below threshold")
+            return {
+                "disease": None,
+                "confidence": 0.0,
+                "severity": "low",
+                "mask_data": None,
+                "class_probs": unet_class_probs,
+                "detected_classes": detected_classes,
+                "pred_mask": pred_mask,
+            }
         
         # Severity based on affected area percentage
         if affected_ratio > 0.25:
@@ -338,13 +463,50 @@ async def detect_disease_unet(image_bytes: bytes) -> Dict[str, Any]:
         logging.info(f"UNet: {disease_name}, affected={round(affected_ratio*100,1)}%, severity={severity}")
         return {
             "disease": disease_name,
+            "confidence": round(avg_conf, 3),
             "severity": severity,
             "affected_percent": round(affected_ratio * 100, 1),
             "overlay_bytes": overlay_bytes,
+            "class_probs": unet_class_probs,
+            "detected_classes": detected_classes,
+            "pred_mask": pred_mask,
         }
     except Exception as e:
         logging.error(f"UNet error: {e}")
-        return {"disease": None, "severity": "unknown", "mask_data": None}
+        return {
+            "disease": None,
+            "confidence": 0.0,
+            "severity": "unknown",
+            "mask_data": None,
+            "class_probs": {},
+            "detected_classes": {},
+            "pred_mask": None,
+        }
+
+
+async def detect_disease_efficientnet(image_bytes: bytes) -> Dict[str, Any]:
+    """Secondary .pth: EfficientNet-B0 whole-image classification"""
+    if not eff_model:
+        return {"disease": None, "confidence": 0.0, "class_probs": {}}
+    
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        input_tensor = eff_transform(image).unsqueeze(0)
+        with torch.no_grad():
+            output = eff_model(input_tensor)
+        probs = torch.sigmoid(output.squeeze(0)).numpy()
+        class_probs = {EFF_CLASSES[i]: float(probs[i]) for i in range(len(EFF_CLASSES))}
+        top_disease = max(class_probs, key=class_probs.get)
+        top_conf = class_probs[top_disease]
+        logging.info(f"EfficientNet-B0 .pth: {top_disease} ({round(top_conf*100, 1)}%), all: {class_probs}")
+        return {
+            "disease": top_disease,
+            "confidence": top_conf,
+            "class_probs": class_probs
+        }
+    except Exception as e:
+        logging.error(f"EfficientNet error: {e}")
+        return {"disease": None, "confidence": 0.0, "class_probs": {}}
 
 
 # Pydantic Models
@@ -361,7 +523,7 @@ class UserProfile(BaseModel):
     mobile: Optional[str] = None
 
 class AdminReview(BaseModel):
-    action: str  # "approve", "reject"
+    action: Optional[str] = "advisory"  # "approve", "reject", "advisory"
     disease: Optional[str] = None  # Admin can correct the disease
     severity: Optional[str] = None
     suggestion: Optional[str] = ""
@@ -419,11 +581,15 @@ async def startup():
             )
         
         # Write test credentials
-        with open("/app/memory/test_credentials.md", "w") as f:
-            f.write("# Test Credentials\n\n")
-            f.write(f"## Admin\n- Username: {admin_username}\n- Password: {admin_password}\n- Role: admin\n\n")
-            f.write("## Test User\n- Username: user1\n- Password: user123\n- Role: user\n\n")
-            f.write("## Endpoints\n- POST /api/auth/register\n- POST /api/auth/login\n- GET /api/auth/me\n- POST /api/detect\n- GET /api/history\n")
+        try:
+            cred_path = ROOT_DIR.parent / "memory" / "test_credentials.md"
+            with open(cred_path, "w", encoding="utf-8") as f:
+                f.write("# Test Credentials\n\n")
+                f.write(f"## Admin\n- Username: {admin_username}\n- Password: {admin_password}\n- Role: admin\n\n")
+                f.write("## Test User\n- Username: user1\n- Password: user123\n- Role: user\n\n")
+                f.write("## Endpoints\n- POST /api/auth/register\n- POST /api/auth/login\n- GET /api/auth/me\n- POST /api/detect\n- GET /api/history\n")
+        except Exception as e:
+            logging.warning(f"Could not write test credentials: {e}")
             
     except Exception as e:
         logging.error(f"Startup error: {e}")
@@ -527,7 +693,7 @@ async def update_profile(profile: UserProfile, current_user: dict = Depends(get_
 
 # Detection Routes
 @api_router.post("/detect")
-async def detect_disease(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+async def detect_disease(file: UploadFile = File(...), lang: str = "en", current_user: dict = Depends(get_current_user)):
     try:
         image_bytes = await file.read()
         
@@ -538,15 +704,28 @@ async def detect_disease(file: UploadFile = File(...), current_user: dict = Depe
         
         storage_result = put_object(storage_path, image_bytes, file.content_type or "image/jpeg")
         
-        # Run UNet segmentation model only (no AI)
-        logging.info("Running UNet segmentation model...")
+        # 1. Run Model 1: .pth UNet segmentation model (best_unet_resnet34.pth)
+        logging.info("Running Model 1 (.pth UNet segmentation)...")
         unet_result = await detect_disease_unet(image_bytes)
-        logging.info(f"UNet: {unet_result.get('disease')} (affected: {unet_result.get('affected_percent', 0)}%)")
+        logging.info(f"UNet .pth result: {unet_result.get('disease')} (affected: {unet_result.get('affected_percent', 0)}%)")
         
-        # Store overlay image if UNet produced one
+        # 2. Run Model 2: .pth EfficientNet classification model (best_sugarcane_efficientnetb0.pth)
+        logging.info("Running Model 2 (.pth EfficientNet classification)...")
+        eff_result = await detect_disease_efficientnet(image_bytes)
+        logging.info(f"EfficientNet .pth result: {eff_result.get('disease')} (conf: {round(eff_result.get('confidence', 0)*100, 1)}%)")
+        
+        # 3. Combine both .pth weights + backend domain rules
+        combined_result = combine_ensemble_models_and_rules(unet_result, eff_result, image_bytes)
+        final_disease = combined_result.get("disease") or "Unrecognized"
+        final_severity = combined_result.get("severity", "medium")
+        is_co_infection = combined_result.get("is_co_infection", False)
+        ai_predictions = combined_result.get("predictions", [])
+        logging.info(f"FINAL COMBINED RESULT: {final_disease} (severity: {final_severity}, co_infection: {is_co_infection}, source: {combined_result.get('backend_source')})")
+        
+        # 4. Store overlay image (only for valid recognized sugarcane leaf diseases)
         overlay_path = ""
-        overlay_bytes = unet_result.get("overlay_bytes")
-        if overlay_bytes:
+        overlay_bytes = None if final_disease == "Unrecognized" else (combined_result.get("overlay_bytes") or unet_result.get("overlay_bytes"))
+        if overlay_bytes and final_disease != "Unrecognized":
             overlay_storage_path = f"{APP_NAME}/overlays/{current_user['id']}/{image_id}_overlay.jpg"
             try:
                 put_object(overlay_storage_path, overlay_bytes, "image/jpeg")
@@ -554,42 +733,30 @@ async def detect_disease(file: UploadFile = File(...), current_user: dict = Depe
             except Exception as e:
                 logging.warning(f"Failed to store overlay: {e}")
         
-        # Use UNet result directly
-        # If UNet found no disease regions, mark as "Unrecognized" (not in our model yet)
-        unet_disease = unet_result.get("disease")
-        if unet_disease:
-            final_disease = unet_disease
-            final_severity = unet_result.get("severity", "low")
-        else:
-            final_disease = "Unrecognized"
-            final_severity = "medium"
-        
         logging.info(f"FINAL RESULT: {final_disease} (severity: {final_severity})")
         
         # Normalize severity
         if final_severity not in ("high", "medium", "low"):
             final_severity = "medium" if final_disease != "Healthy" else "low"
         
-        # Get disease info (case-insensitive lookup)
-        disease_info = None
-        for key, val in DISEASE_INFO.items():
-            if key.lower() == final_disease.lower():
-                disease_info = val
-                final_disease = key  # Normalize to correct case
-                break
-        if not disease_info:
-            disease_info = DISEASE_INFO.get("Healthy", {
-                "symptoms": "Unknown",
-                "causes": "Unknown", 
-                "prevention": "Unknown",
-                "treatment": "Unknown",
-                "syngenta_products": []
-            })
+        # Get disease info and practices (supports single or dual/co-infection)
+        disease_info, practices = get_disease_info_and_practices(final_disease)
         
-        # Get practices for the disease
-        practices = DISEASE_PRACTICES.get(final_disease, {})
+        # Localize disease info if requested
+        translated = get_translated_disease_info(final_disease, lang)
+        disease_name_local = translated.get("disease_name_local", final_disease)
         
-        # Save detection result as PENDING (admin must approve before farmer sees it)
+        if lang == "mr" and final_disease in DISEASE_PRACTICES_MR:
+            user_practices = DISEASE_PRACTICES_MR[final_disease]
+        else:
+            user_practices = practices
+            
+        treatment_text = translated.get("treatment") if lang != "en" else disease_info["treatment"]
+        symptoms_text = translated.get("symptoms") if lang != "en" else disease_info["symptoms"]
+        causes_text = translated.get("causes") if lang != "en" else disease_info["causes"]
+        prevention_text = translated.get("prevention") if lang != "en" else disease_info["prevention"]
+
+        # Results are provided directly without requiring admin approval
         detection_doc = {
             "id": image_id,
             "user_id": current_user["id"],
@@ -599,20 +766,26 @@ async def detect_disease(file: UploadFile = File(...), current_user: dict = Depe
             "ai_disease": final_disease,
             "ai_severity": final_severity,
             "disease": final_disease,
+            "disease_name_local": disease_name_local,
             "severity": final_severity,
-            "treatment": disease_info["treatment"],
-            "symptoms": disease_info["symptoms"],
-            "causes": disease_info["causes"],
-            "prevention": disease_info["prevention"],
-            "cultural_practices": practices.get("cultural", []),
-            "mechanical_practices": practices.get("mechanical", []),
-            "biological_practices": practices.get("biological", []),
-            "chemical_practices": practices.get("chemical", []),
-            "spray_timing": practices.get("timing", []),
-            "status": "pending",
+            "is_co_infection": is_co_infection,
+            "primary_disease": combined_result.get("primary_disease", final_disease),
+            "secondary_disease": combined_result.get("secondary_disease"),
+            "ai_predictions": ai_predictions,
+            "treatment": treatment_text,
+            "symptoms": symptoms_text,
+            "causes": causes_text,
+            "prevention": prevention_text,
+            "cultural_practices": user_practices.get("cultural", []),
+            "mechanical_practices": user_practices.get("mechanical", []),
+            "biological_practices": user_practices.get("biological", []),
+            "chemical_practices": user_practices.get("chemical", []),
+            "spray_timing": user_practices.get("timing", []),
+            "chemical_reference": get_chemical_reference(final_disease),
+            "status": "approved",
             "admin_suggestion": "",
-            "reviewed_by": "",
-            "reviewed_at": "",
+            "reviewed_by": "AI Automated",
+            "reviewed_at": datetime.now(timezone.utc).isoformat(),
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         
@@ -632,26 +805,29 @@ async def get_history(lang: str = "en", current_user: dict = Depends(get_current
         {"_id": 0}
     ).sort("created_at", -1).to_list(100)
     
-    # Translate disease info based on language
+    # Translate disease info and provide practices directly for all scans
     for det in detections:
-        if det.get("status") == "approved" and det.get("disease"):
-            translated = get_translated_disease_info(det["disease"], lang)
-            det["disease_name_local"] = translated.get("disease_name_local", det["disease"])
-            det["symptoms"] = translated["symptoms"]
-            det["causes"] = translated["causes"]
-            det["prevention"] = translated["prevention"]
-            det["treatment"] = translated["treatment"]
-            # Add practices for approved items
-            disease_name = det["disease"]
+        disease_name = det.get("disease") or det.get("ai_disease")
+        if disease_name:
+            translated = get_translated_disease_info(disease_name, lang)
+            det["disease_name_local"] = translated.get("disease_name_local", disease_name)
+            det["symptoms"] = translated.get("symptoms", det.get("symptoms", ""))
+            det["causes"] = translated.get("causes", det.get("causes", ""))
+            det["prevention"] = translated.get("prevention", det.get("prevention", ""))
+            det["treatment"] = translated.get("treatment", det.get("treatment", ""))
+            
             if lang == "mr" and disease_name in DISEASE_PRACTICES_MR:
                 practices = DISEASE_PRACTICES_MR[disease_name]
             else:
                 practices = DISEASE_PRACTICES.get(disease_name, {})
-            det["cultural_practices"] = practices.get("cultural", [])
-            det["mechanical_practices"] = practices.get("mechanical", [])
-            det["biological_practices"] = practices.get("biological", [])
-            det["chemical_practices"] = practices.get("chemical", [])
-            det["spray_timing"] = practices.get("timing", [])
+                
+            det["cultural_practices"] = practices.get("cultural", det.get("cultural_practices", []))
+            det["mechanical_practices"] = practices.get("mechanical", det.get("mechanical_practices", []))
+            det["biological_practices"] = practices.get("biological", det.get("biological_practices", []))
+            det["chemical_practices"] = practices.get("chemical", det.get("chemical_practices", []))
+            det["chemical_reference"] = get_chemical_reference(disease_name)
+            det["spray_timing"] = practices.get("timing", det.get("spray_timing", []))
+            det["status"] = "approved"
     
     return detections
 
@@ -679,6 +855,7 @@ async def get_diseases(lang: str = "en"):
         translated["mechanical_practices"] = practices.get("mechanical", [])
         translated["biological_practices"] = practices.get("biological", [])
         translated["chemical_practices"] = practices.get("chemical", [])
+        translated["chemical_reference"] = get_chemical_reference(name)
         translated["spray_timing"] = practices.get("timing", [])
         result[name] = translated
     return result
@@ -689,15 +866,39 @@ async def get_all_users(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
-    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(1000)
+    for u in users:
+        u_name = u.get("username")
+        u["total_scans"] = await db.detections.count_documents({"username": u_name})
     return users
 
 @api_router.get("/admin/detections")
-async def get_all_detections(current_user: dict = Depends(get_current_user)):
+async def get_all_detections(lang: str = "en", current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
     detections = await db.detections.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    for det in detections:
+        disease_name = det.get("disease") or det.get("ai_disease")
+        if disease_name:
+            translated = get_translated_disease_info(disease_name, lang)
+            det["disease_name_local"] = translated.get("disease_name_local", disease_name)
+            det["symptoms"] = translated.get("symptoms", det.get("symptoms", ""))
+            det["causes"] = translated.get("causes", det.get("causes", ""))
+            det["prevention"] = translated.get("prevention", det.get("prevention", ""))
+            det["treatment"] = translated.get("treatment", det.get("treatment", ""))
+            
+            if lang == "mr" and disease_name in DISEASE_PRACTICES_MR:
+                practices = DISEASE_PRACTICES_MR[disease_name]
+            else:
+                practices = DISEASE_PRACTICES.get(disease_name, {})
+                
+            det["cultural_practices"] = practices.get("cultural", det.get("cultural_practices", []))
+            det["mechanical_practices"] = practices.get("mechanical", det.get("mechanical_practices", []))
+            det["biological_practices"] = practices.get("biological", det.get("biological_practices", []))
+            det["chemical_practices"] = practices.get("chemical", det.get("chemical_practices", []))
+            det["chemical_reference"] = get_chemical_reference(disease_name)
+            det["spray_timing"] = practices.get("timing", det.get("spray_timing", []))
     return detections
 
 @api_router.get("/admin/stats")
@@ -770,8 +971,9 @@ async def get_pending_reviews(current_user: dict = Depends(get_current_user)):
     return pending
 
 @api_router.post("/admin/review/{detection_id}")
+@api_router.post("/admin/advisory/{detection_id}")
 async def review_detection(detection_id: str, review: AdminReview, current_user: dict = Depends(get_current_user)):
-    """Admin: Approve or reject a detection with optional corrections and suggestions"""
+    """Admin: Update advisory, approve or reject a detection with optional corrections and suggestions"""
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     
@@ -779,43 +981,36 @@ async def review_detection(detection_id: str, review: AdminReview, current_user:
     if not detection:
         raise HTTPException(status_code=404, detail="Detection not found")
     
-    if review.action not in ("approve", "reject"):
-        raise HTTPException(status_code=400, detail="Action must be 'approve' or 'reject'")
+    action = review.action or "advisory"
+    if action not in ("approve", "reject", "advisory"):
+        raise HTTPException(status_code=400, detail="Action must be 'approve', 'reject' or 'advisory'")
     
     update_data = {
-        "status": "approved" if review.action == "approve" else "rejected",
         "admin_suggestion": review.suggestion or "",
         "reviewed_by": current_user["username"],
         "reviewed_at": datetime.now(timezone.utc).isoformat()
     }
+    if action == "reject":
+        update_data["status"] = "rejected"
+    elif action in ("approve", "advisory"):
+        update_data["status"] = "approved"
     
-    # If admin corrected the disease
-    if review.action == "approve" and review.disease:
+    # If admin corrected disease
+    if review.disease:
         corrected_disease = review.disease
-        # Look up disease info for the corrected disease
-        disease_info = None
-        for key, val in DISEASE_INFO.items():
-            if key.lower() == corrected_disease.lower():
-                disease_info = val
-                corrected_disease = key
-                break
-        if disease_info:
-            update_data["disease"] = corrected_disease
-            update_data["treatment"] = disease_info["treatment"]
-            update_data["symptoms"] = disease_info["symptoms"]
-            update_data["causes"] = disease_info["causes"]
-            update_data["prevention"] = disease_info["prevention"]
-            # Update practices too
-            practices = DISEASE_PRACTICES.get(corrected_disease, {})
-            update_data["cultural_practices"] = practices.get("cultural", [])
-            update_data["mechanical_practices"] = practices.get("mechanical", [])
-            update_data["biological_practices"] = practices.get("biological", [])
-            update_data["chemical_practices"] = practices.get("chemical", [])
-            update_data["spray_timing"] = practices.get("timing", [])
-        else:
-            update_data["disease"] = corrected_disease
+        disease_info, practices = get_disease_info_and_practices(corrected_disease)
+        update_data["disease"] = corrected_disease
+        update_data["treatment"] = disease_info["treatment"]
+        update_data["symptoms"] = disease_info["symptoms"]
+        update_data["causes"] = disease_info["causes"]
+        update_data["prevention"] = disease_info["prevention"]
+        update_data["cultural_practices"] = practices.get("cultural", [])
+        update_data["mechanical_practices"] = practices.get("mechanical", [])
+        update_data["biological_practices"] = practices.get("biological", [])
+        update_data["chemical_practices"] = practices.get("chemical", [])
+        update_data["spray_timing"] = practices.get("timing", [])
     
-    if review.action == "approve" and review.severity:
+    if review.severity:
         update_data["severity"] = review.severity
     
     await db.detections.update_one({"id": detection_id}, {"$set": update_data})

@@ -39,9 +39,9 @@ export const RegisterPage = () => {
         />
         <div className="absolute inset-0 bg-gradient-to-br from-[#1A3626]/80 to-[#1A3626]/40" />
         <div className="relative z-10 flex flex-col justify-end p-12 text-white">
-          <h2 className="text-3xl font-bold tracking-tight mb-3">Join SUGARCANE AI</h2>
+          <h2 className="text-3xl font-bold tracking-tight mb-3">{t('joinTitle')}</h2>
           <p className="text-lg text-white/80 leading-relaxed max-w-md">
-            Start detecting sugarcane diseases with AI-powered analysis and get expert-verified treatment plans.
+            {t('joinDescription')}
           </p>
         </div>
       </div>
@@ -56,7 +56,7 @@ export const RegisterPage = () => {
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-extrabold text-[#1A3626] tracking-tight mb-2">{t('register')}</h1>
-          <p className="text-[#57695D] mb-8">Create your account to get started</p>
+          <p className="text-[#57695D] mb-8">{t('createAccountSubtitle')}</p>
 
           {error && (
             <div className="bg-[#F5D0C9] border border-[#E29D90] text-[#8F2C1A] px-4 py-3 rounded-xl mb-6 text-sm font-medium">{error}</div>
@@ -65,13 +65,13 @@ export const RegisterPage = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="text-xs uppercase tracking-[0.2em] text-[#839E88] font-semibold mb-2 block">{t('username')}</label>
-              <input data-testid="register-username-input" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Choose a username" required
+              <input data-testid="register-username-input" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder={t('chooseUsername')} required
                 className="w-full bg-[#FDFDFB] border border-[#839E88]/40 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#1A3626] focus:border-transparent outline-none transition-all text-[#1A3626] placeholder:text-[#839E88]" />
             </div>
             <div>
               <label className="text-xs uppercase tracking-[0.2em] text-[#839E88] font-semibold mb-2 block">{t('password')}</label>
               <div className="relative">
-                <input data-testid="register-password-input" type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Choose a password" required
+                <input data-testid="register-password-input" type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('choosePassword')} required
                   className="w-full bg-[#FDFDFB] border border-[#839E88]/40 rounded-lg px-4 py-3 pr-12 focus:ring-2 focus:ring-[#1A3626] focus:border-transparent outline-none transition-all text-[#1A3626] placeholder:text-[#839E88]" />
                 <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#839E88] hover:text-[#1A3626]">
                   {showPw ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}

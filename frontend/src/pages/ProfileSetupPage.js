@@ -43,7 +43,7 @@ export const ProfileSetupPage = () => {
             <h1 className="text-3xl font-bold text-[#1A201C]" style={{ fontFamily: 'Outfit, sans-serif' }}>
               {t('completeProfile')}
             </h1>
-            <p className="text-[#5C6B61] mt-2">Help us know you better</p>
+            <p className="text-[#5C6B61] mt-2">{t('profileSubtitle')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -60,7 +60,7 @@ export const ProfileSetupPage = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-[#DDE3DA] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A27] focus:border-transparent"
-                  placeholder="Enter your full name"
+                  placeholder={t('enterFullName')}
                   required
                 />
               </div>
@@ -79,7 +79,7 @@ export const ProfileSetupPage = () => {
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-[#DDE3DA] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2D5A27] focus:border-transparent"
-                  placeholder="Enter your mobile number"
+                  placeholder={t('enterMobile')}
                   required
                 />
               </div>
@@ -91,7 +91,7 @@ export const ProfileSetupPage = () => {
                 onClick={handleSkip}
                 className="flex-1 border border-[#DDE3DA] text-[#5C6B61] py-3 rounded-lg font-medium hover:bg-[#F9F8F6] transition-colors"
               >
-                Skip for now
+                {t('skipForNow')}
               </button>
               <button
                 type="submit"
